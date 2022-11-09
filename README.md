@@ -15,4 +15,4 @@
 - `@nestjs/passport`:  Passport library for nestjs.
 - `passport:` Passport library for Node.js
 - `passport-jwt:` Passport library for JWT authentication.
-
+-  `@types/passport-jwt :` Passport JWT for Typescript
