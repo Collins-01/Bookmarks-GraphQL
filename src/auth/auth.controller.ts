@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Post, Req, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDTO, RegisterDTO, ResendOtpDto, VerifyOtpDTO } from './dtos';
+import { ForgotPasswordDto, LoginDTO, RegisterDTO, ResendOtpDto, VerifyOtpDTO } from './dtos';
 
 @Controller('auth')
 export class AuthController {
@@ -24,6 +24,13 @@ export class AuthController {
   resendOtp(@Body() dto:ResendOtpDto, @Req() response:Response){
     return this.authService.resendOtp(dto, response );
   }
+
+
+  @Post('forgot-password')
+  forgotPassword(@Body() dto:ForgotPasswordDto){
+    return this.authService.forgotPassword(dto)
+  }
+
 
   @Get('otp/all')
   getOtpTable(){

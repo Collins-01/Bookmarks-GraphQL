@@ -12,4 +12,7 @@
 
 - `class-validator :` Validating DTO objects.
 - `prisma :` 
+- `@nestjs/passport`:  Passport library for nestjs.
+- `passport:` Passport library for Node.js
+- `passport-jwt:` Passport library for JWT authentication.
 

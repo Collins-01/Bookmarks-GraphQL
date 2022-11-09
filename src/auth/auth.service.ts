@@ -7,7 +7,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LoginDTO, RegisterDTO, ResendOtpDto, VerifyOtpDTO } from './dtos';
+import {
+  ForgotPasswordDto,
+  LoginDTO,
+  RegisterDTO,
+  ResendOtpDto,
+  VerifyOtpDTO,
+} from './dtos';
 import * as argon from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -134,17 +140,19 @@ export class AuthService {
     throw new NotFoundException();
   }
 
-  async resendOtp(dto:ResendOtpDto, response: Response) {
+  async resendOtp(dto: ResendOtpDto, response: Response) {
     const user = await this.prisma.user.findUnique({
       where: {
-      email: dto.email
+        email: dto.email,
       },
     });
     if (!user) {
       throw new NotFoundException('No user found.');
     }
     if (user.isActivated) {
-      throw new ForbiddenException(`User's account has already been activated.`)
+      throw new ForbiddenException(
+        `User's account has already been activated.`,
+      );
     }
     const verification = await this.prisma.verification.findUnique({
       where: {
@@ -161,12 +169,30 @@ export class AuthService {
     });
     const status = await this.generateAndSendOTP(dto.email);
     if (status) {
-    return  {
+      return {
         message: `A new OTP code has been sent to ${dto.email}`,
-      }
+      };
     }
 
     throw new BadRequestException('Failed to generate new OTP code.');
+  }
+  // ****************** Forgot Password********************************
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email: dto.email,
+        },
+      });
+      if(!user){
+        throw new NotFoundException('Email does not exist.')
+      }
+      // * Send OTP
+      
+    } catch (error) {
+      throw new Error(error);
+    }
   }
 
   async getOtpTable() {
