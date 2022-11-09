@@ -35,5 +35,4 @@ model Verification {
   email String @unique
   code String @unique
   expiry DateTime 
-  issued DateTime
 }

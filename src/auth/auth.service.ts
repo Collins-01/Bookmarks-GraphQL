@@ -1,11 +1,13 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { LoginDTO, RegisterDTO, VerifyOtpDTO } from './dtos';
+import { LoginDTO, RegisterDTO, ResendOtpDto, VerifyOtpDTO } from './dtos';
 import * as argon from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -19,7 +21,10 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
   ) {}
-  async register(registerDTO: RegisterDTO, response: Response){
+  // ************************** PUBLIC METHODS  **************************************
+
+  // ************* REGISTER **************
+  async register(registerDTO: RegisterDTO, response: Response) {
     try {
       const hashedPassword = await argon.hash(registerDTO.password);
       console.log(`Hashed Password ${hashedPassword}`);
@@ -38,19 +43,17 @@ export class AuthService {
         },
       });
       // *SEND OTP TO EMAIL/PHONE NUMBER.
-      const  status = await this.generateAndSendOTP(user.email);
-      if(status){
+      const status = await this.generateAndSendOTP(user.email);
+      if (status) {
         return response.status(201).json({
           message: `An OTP has been sent to ${user.email}`,
           expiresIn: 3600,
         });
       }
-      return response.status(201).json({
-        message: `User Created`,
-        expiresIn: 3600,
-      });
 
-      
+      return response.status(200).json({
+        message: 'User Created',
+      });
     } catch (error) {
       // * Handle Errors
       console.log(`Error Creating User: ${error}`);
@@ -65,6 +68,7 @@ export class AuthService {
       throw new Error(error);
     }
   }
+  // ************* LOGIN ************
   async login(loginDTO: LoginDTO) {
     const user = await this.prisma.user.findUnique({
       where: {
@@ -75,40 +79,39 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('No user found.');
     }
+    // TODO: For security reasons, change to `User not found`
     if (!user.isActivated) {
-      throw new NotFoundException('OTP not activated.');
+      throw new UnauthorizedException('OTP not activated.');
     }
     const pwMatch = await argon.verify(user.hash, loginDTO.password);
     if (!pwMatch) {
       throw new ForbiddenException('Incorrect credentials');
     }
-
+    const token = await this.generateToken(user.email, user.id);
     return {
+      ...token,
       ...user,
     };
   }
-
+  // ************* Verify OTP ************
   async verifyOTP(dto: VerifyOtpDTO, response: Response) {
     const verification = await this.prisma.verification.findUnique({
       where: {
-        code: dto.email,
+        email: dto.email,
       },
     });
 
     if (!verification) {
       throw new NotFoundException('No OTP was assigned to this email address.');
     }
-    if (verification.expiry) {
-      return response.status(400).json({ message: 'OTP code has expired.' });
+    if (new Date() >= verification.expiry) {
+      throw new ForbiddenException('OTP code has expired.');
     }
     const hashMatch = await argon.verify(verification.code, dto.code);
     if (!hashMatch) {
-      return response.status(404).json({
-        message: 'OTP code does not match.',
-      });
+      throw new NotFoundException('OTP code does not match.');
     }
-
-    if (hashMatch && verification.issued < verification.expiry) {
+    if (hashMatch && new Date() < verification.expiry) {
       // Update User Status
       const user = await this.prisma.user.update({
         where: {
@@ -118,48 +121,59 @@ export class AuthService {
           isActivated: true,
         },
       });
-
+      await this.prisma.verification.delete({
+        where: {
+          email: dto.email,
+        },
+      });
       return response.status(200).json({
-        message: 'Account verrified successfully, login to continue.',
+        message: 'Verification successful, Login to Continue.',
       });
     }
 
     throw new NotFoundException();
   }
 
-  async resendOtp(email:string, response: Response){
-    const user= await this.prisma.user.findUnique({
+  async resendOtp(dto:ResendOtpDto, response: Response) {
+    const user = await this.prisma.user.findUnique({
       where: {
-        email,
+      email: dto.email
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('No user found.');
+    }
+    if (user.isActivated) {
+      throw new ForbiddenException(`User's account has already been activated.`)
+    }
+    const verification = await this.prisma.verification.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
+    if (!verification) {
+      throw new NotFoundException(`No OTP was generated for ${dto.email}`);
+    }
+    await this.prisma.verification.delete({
+      where: {
+        email: dto.email,
+      },
+    });
+    const status = await this.generateAndSendOTP(dto.email);
+    if (status) {
+    return  {
+        message: `A new OTP code has been sent to ${dto.email}`,
       }
-    })
-    if(!user){
-      throw new NotFoundException('No user found.')
     }
-    if(user.isActivated){
-      return response.status(400).json({
-        message: `User's account has already been activated.`
-      })
-    }
-    const verification= await this.prisma.verification.findUnique({
-      where:{
-        email
-      }
-    })
-    if(!verification){
-      throw new NotFoundException(`No OTP was generate for ${email}`)
-    }
-    const deletedVerification = await this.prisma.verification.delete({
-      where:{
-        email,
-      }
-    })
-    const status= await this.generateAndSendOTP(email);
-    if(status){
-      response.status(200).json({
-        message: `A new OTP code has been sent to ${email}`
-      })
-    }
+
+    throw new BadRequestException('Failed to generate new OTP code.');
+  }
+
+  async getOtpTable() {
+    return await this.prisma.verification.findMany();
+  }
+  async deleteOtpTable() {
+    return await this.prisma.verification.deleteMany();
   }
 
   // *************************  Private Methods   ***************************************
@@ -181,23 +195,37 @@ export class AuthService {
     return new Date(date.getTime() + minutes * 60000);
   }
 
-  async generateAndSendOTP(email: string): Promise<{status:boolean}> {
+  async generateAndSendOTP(email: string): Promise<{ status: boolean }> {
     try {
-      const code = '12345';
+      // *************** Code should be generated with a valid library ****************
+      const code = '1234';
       const hashed = await argon.hash(code);
       const verification = await this.prisma.verification.create({
         data: {
           code: hashed,
           email,
-          expiry: this.addMinutesToDate(new Date(), 2),
-          issued:this.addMinutesToDate(new Date(), 2),
+          expiry: this.addMinutesToDate(new Date(), 1),
         },
       });
-      console.log(verification.code, verification.email, verification.issued,verification.expiry,verification.id);
+      console.log(
+        verification.code,
+        verification.email,
+        verification.expiry,
+        verification.id,
+      );
       //* SEND Mail with NodeMailer.
-      return { status: true }
+      return { status: true };
     } catch (error) {
+      console.log(`Error Creating User: ${error}`);
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(`A user with ${email} already exists.`);
+      }
       throw new Error(error);
     }
   }
 }
+
+// https://www.pdfdrive.com/how-they-started-how-25-good-ideas-became-great-companies-d157631125.html
