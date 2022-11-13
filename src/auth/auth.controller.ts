@@ -1,43 +1,91 @@
-import { Body, Controller, Delete, Get, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { ForgotPasswordDto, LoginDTO, RegisterDTO, ResendOtpDto, VerifyOtpDTO } from './dtos';
+import { GetUser } from './decorators/get-user.decorator';
+import {
+  ForgotPasswordDto,
+  LoginDTO,
+  RegisterDTO,
+  ResendOtpDto,
+  UpdatePasswordDto,
+  VerifyOtpDTO,
+} from './dtos';
+import { OTPService } from './otp.service';
+import { PasswordService } from './password.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private passwordService: PasswordService,
+    private otpService: OTPService,
+  ) {}
 
   @Post('register')
-   register(@Body() registerDTO: RegisterDTO, @Res() response:Response) {
-    return  this.authService.register(registerDTO, response);
+  register(@Body() registerDTO: RegisterDTO, @Res() response: Response) {
+    return this.authService.register(registerDTO, response);
   }
   @Post('login')
-   login(@Body() loginDTO:LoginDTO) {
-    return  this.authService.login(loginDTO);
+  login(@Body() loginDTO: LoginDTO) {
+    return this.authService.login(loginDTO);
   }
   @Post('otp/verify')
-  verifyOtp(@Body() dto:VerifyOtpDTO, @Res() response:Response){
-    return this.authService.verifyOTP(dto, response);
+  verifyOtp(@Body() dto: VerifyOtpDTO, @Res() response: Response) {
+    return this.otpService.verifyOTP(dto, response);
   }
 
   @Post('otp/resend')
-  resendOtp(@Body() dto:ResendOtpDto, @Req() response:Response){
-    return this.authService.resendOtp(dto, response );
+  resendOtp(@Body() dto: ResendOtpDto, @Req() response: Response) {
+    return this.otpService.resendOtp(dto, response);
   }
-
 
   @Post('forgot-password')
-  forgotPassword(@Body() dto:ForgotPasswordDto){
-    return this.authService.forgotPassword(dto)
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.passwordService.forgotPassword(dto);
   }
-
 
   @Get('otp/all')
-  getOtpTable(){
-    return this.authService.getOtpTable();
+  getOtpTable() {
+    return this.otpService.getOtpTable();
   }
   @Delete('otp/all')
-  deleteOtpTable(){
-    return this.authService.deleteOtpTable();
+  deleteOtpTable() {
+    return this.otpService.deleteOtpTable();
   }
+
+  @Patch('password-update')
+  updatePassword(@Body() dto: UpdatePasswordDto, @GetUser() user: User) {
+    return this.passwordService.updatePassword(dto, user.email);
+  }
+
+  @Post('resfresh-token')
+  refreshToken(@Body() token: string) {
+    return this.authService.refreshToken(token);
+  }
+
+  @Get('user')
+  async getUser() {
+    return this.authService.getUserFromToken('');
+  }
+
+  // **************** social authentications ****************
+
+  @Post('google')
+  googleAuth() {}
+
+  @Post('facebook')
+  facebookAuth() {}
+
+  @Post('apple')
+  appleAuth() {}
 }

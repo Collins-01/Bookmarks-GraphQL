@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -7,18 +6,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  ForgotPasswordDto,
-  LoginDTO,
-  RegisterDTO,
-  ResendOtpDto,
-  VerifyOtpDTO,
-} from './dtos';
+import { LoginDTO, RegisterDTO } from './dtos';
 import * as argon from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { Response } from 'express';
+import { User } from '@prisma/client';
+import { OTPService } from './otp.service';
+import { Token } from './models';
 
 @Injectable()
 export class AuthService {
@@ -26,8 +22,14 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private otpService: OTPService,
   ) {}
-  // ************************** PUBLIC METHODS  **************************************
+
+  // ***** Validate User*****
+
+  validateUser(userId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id: userId } });
+  }
 
   // ************* REGISTER **************
   async register(registerDTO: RegisterDTO, response: Response) {
@@ -49,16 +51,11 @@ export class AuthService {
         },
       });
       // *SEND OTP TO EMAIL/PHONE NUMBER.
-      const status = await this.generateAndSendOTP(user.email);
-      if (status) {
-        return response.status(201).json({
-          message: `An OTP has been sent to ${user.email}`,
-          expiresIn: 3600,
-        });
-      }
+      await this.otpService.generateOTP(user.email);
 
-      return response.status(200).json({
-        message: 'User Created',
+      return response.status(201).json({
+        message: `An OTP has been sent to ${user.email}`,
+        expiresIn: 3600,
       });
     } catch (error) {
       // * Handle Errors
@@ -74,6 +71,17 @@ export class AuthService {
       throw new Error(error);
     }
   }
+   getUserFromToken(token: string): Promise<User | null> {
+    // const id = this.jwt.decode(token)['userId'];
+    const json = this.jwt.decode(token);
+    const id = '';
+    
+
+    // const id = this.jwt.decode(token)['userId'];
+    // const payload: string decoded['userId'];
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+  // async logOut() {}
   // ************* LOGIN ************
   async login(loginDTO: LoginDTO) {
     const user = await this.prisma.user.findUnique({
@@ -93,164 +101,55 @@ export class AuthService {
     if (!pwMatch) {
       throw new ForbiddenException('Incorrect credentials');
     }
-    const token = await this.generateToken(user.email, user.id);
+    const payload = {
+      userId: user.id,
+      email: user.email,
+    };
+    const token = this.generateTokens(payload);
+
+    const {hash,...rest} = user;
     return {
       ...token,
-      ...user,
+      ...rest,
     };
   }
-  // ************* Verify OTP ************
-  async verifyOTP(dto: VerifyOtpDTO, response: Response) {
-    const verification = await this.prisma.verification.findUnique({
-      where: {
-        email: dto.email,
-      },
-    });
 
-    if (!verification) {
-      throw new NotFoundException('No OTP was assigned to this email address.');
-    }
-    if (new Date() >= verification.expiry) {
-      throw new ForbiddenException('OTP code has expired.');
-    }
-    const hashMatch = await argon.verify(verification.code, dto.code);
-    if (!hashMatch) {
-      throw new NotFoundException('OTP code does not match.');
-    }
-    if (hashMatch && new Date() < verification.expiry) {
-      // Update User Status
-      const user = await this.prisma.user.update({
-        where: {
-          email: dto.email,
-        },
-        data: {
-          isActivated: true,
-        },
-      });
-      await this.prisma.verification.delete({
-        where: {
-          email: dto.email,
-        },
-      });
-      return response.status(200).json({
-        message: 'Verification successful, Login to Continue.',
-      });
-    }
-
-    throw new NotFoundException();
-  }
-
-  async resendOtp(dto: ResendOtpDto, response: Response) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email: dto.email,
-      },
-    });
-    if (!user) {
-      throw new NotFoundException('No user found.');
-    }
-    if (user.isActivated) {
-      throw new ForbiddenException(
-        `User's account has already been activated.`,
-      );
-    }
-    const verification = await this.prisma.verification.findUnique({
-      where: {
-        email: dto.email,
-      },
-    });
-    if (!verification) {
-      throw new NotFoundException(`No OTP was generated for ${dto.email}`);
-    }
-    await this.prisma.verification.delete({
-      where: {
-        email: dto.email,
-      },
-    });
-    const status = await this.generateAndSendOTP(dto.email);
-    if (status) {
-      return {
-        message: `A new OTP code has been sent to ${dto.email}`,
-      };
-    }
-
-    throw new BadRequestException('Failed to generate new OTP code.');
-  }
-  // ****************** Forgot Password********************************
-
-  async forgotPassword(dto: ForgotPasswordDto) {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: {
-          email: dto.email,
-        },
-      });
-      if(!user){
-        throw new NotFoundException('Email does not exist.')
-      }
-      // * Send OTP
-      
-    } catch (error) {
-      throw new Error(error);
-    }
-  }
-
-  async getOtpTable() {
-    return await this.prisma.verification.findMany();
-  }
-  async deleteOtpTable() {
-    return await this.prisma.verification.deleteMany();
-  }
-
-  // *************************  Private Methods   ***************************************
-  async generateToken(
-    email: string,
-    id: string,
-  ): Promise<{ access_token: string }> {
-    const payload = {
-      email,
-      sub: id,
+  generateTokens(payload: { userId: string; email: string }): Token {
+    return {
+      accessToken: this.generateAccessToken(payload),
+      refreshToken: this.generateRefreshToken(payload),
     };
-    const token = await this.jwt.signAsync(payload, {
-      expiresIn: '15m',
-      secret: 'secret',
-    });
-    return { access_token: token };
   }
-  addMinutesToDate(date: Date, minutes: number): Date {
-    return new Date(date.getTime() + minutes * 60000);
+  refreshToken(token: string) {
+    try {
+      const { userId, email } = this.jwt.verify(token, {
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+      });
+
+      return this.generateTokens({
+        userId,
+        email,
+      });
+    } catch (e) {
+      throw new UnauthorizedException();
+    }
   }
 
-  async generateAndSendOTP(email: string): Promise<{ status: boolean }> {
-    try {
-      // *************** Code should be generated with a valid library ****************
-      const code = '1234';
-      const hashed = await argon.hash(code);
-      const verification = await this.prisma.verification.create({
-        data: {
-          code: hashed,
-          email,
-          expiry: this.addMinutesToDate(new Date(), 1),
-        },
-      });
-      console.log(
-        verification.code,
-        verification.email,
-        verification.expiry,
-        verification.id,
-      );
-      //* SEND Mail with NodeMailer.
-      return { status: true };
-    } catch (error) {
-      console.log(`Error Creating User: ${error}`);
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException(`A user with ${email} already exists.`);
-      }
-      throw new Error(error);
-    }
+  private generateAccessToken(payload: {
+    userId: string;
+    email: string;
+  }): string {
+    return this.jwt.sign(payload);
+  }
+
+  private generateRefreshToken(payload: {
+    userId: string;
+    email: string;
+  }): string {
+    return this.jwt.sign(payload, {
+      secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: this.config.get<string>('JWT_EXPIRES_IN'),
+    });
   }
 }
 
