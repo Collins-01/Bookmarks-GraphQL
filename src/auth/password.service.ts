@@ -1,14 +1,19 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "src/prisma/prisma.service";
-import { ForgotPasswordDto, UpdatePasswordDto } from "./dtos";
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ForgotPasswordDto, UpdatePasswordDto } from './dtos';
 import * as argon from 'argon2';
+import { Response } from 'express';
 
 @Injectable()
 export class PasswordService {
   constructor(private prisma: PrismaService) {}
-         
-  
-  async updatePassword(dto: UpdatePasswordDto, email: string) {
+
+  async updatePassword(dto: UpdatePasswordDto, email: string, response:Response) {
+    console.log(`Update Email:::: ${email}`);
     const user = await this.prisma.user.findUnique({
       where: {
         email: email,
@@ -17,9 +22,9 @@ export class PasswordService {
     if (!user) {
       throw new NotFoundException('No user with this email address.');
     }
-    const hashMatch = await argon.verify(dto.oldPassword, user.hash);
+    const hashMatch = await argon.verify(user.hash, dto.oldPassword);
     if (!hashMatch) {
-      throw new ForbiddenException('Old Passwords do not match.');
+      throw new ForbiddenException('Old Password do not match.');
     }
     const hashMatchNewPassword = await argon.verify(dto.newPassword, user.hash);
     if (hashMatchNewPassword) {
@@ -29,18 +34,21 @@ export class PasswordService {
     }
     const newHash = await argon.hash(dto.newPassword);
 
-    const iUser = await this.prisma.user.update({
-      where: {
-        email,
-      },
-      data: {
-        hash: newHash,
-      },
-    });
-    if (iUser) {
-      return {
-        message: `Password updated successfully.`,
-      };
+    try {
+      const iUser = await this.prisma.user.update({
+        where: {
+          email,
+        },
+        data: {
+          hash: newHash,
+        },
+      });
+      return  {
+        message :'Opor'
+      }
+      
+    } catch (error) {
+      throw new Error(error);
     }
   }
 

@@ -13,3 +13,7 @@ async function bootstrap() {
 }
 bootstrap();
 // git@github.com-personal:Collins-01/Bookmarks-GraphQL.git
+
+
+// * Tutorials (Written)
+// https://wanago.io/2021/07/26/api-nestjs-google-authentication/

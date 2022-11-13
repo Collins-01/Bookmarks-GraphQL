@@ -7,7 +7,9 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -63,9 +65,10 @@ export class AuthController {
     return this.otpService.deleteOtpTable();
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Patch('password-update')
-  updatePassword(@Body() dto: UpdatePasswordDto, @GetUser() user: User) {
-    return this.passwordService.updatePassword(dto, user.email);
+  updatePassword(@Body() dto: UpdatePasswordDto, @GetUser() user: User, @Res() response: Response) {
+    return this.passwordService.updatePassword(dto, user.email,response);
   }
 
   @Post('resfresh-token')
