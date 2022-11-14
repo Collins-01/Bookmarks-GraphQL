@@ -65,8 +65,6 @@ export class GoogleAuthService {
           age: 5,
           email: email,
           isActivated: true,
-          hash: ''
-          
         },
       });
     } catch (error) {}

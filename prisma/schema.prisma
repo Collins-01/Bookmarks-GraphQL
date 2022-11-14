@@ -11,14 +11,15 @@ datasource db {
 }
 
 model User {
-  id             String   @unique @default(cuid())
-  email          String   @unique
-  hash           String?  
+  id             String    @unique @default(cuid())
+  email          String    @unique
+  hash           String?
   age            Int
-  isSubscribed   Boolean? @default(false)
-  isActivated    Boolean? @default(false)
-  isSocialSignUp Boolean? @default(false)
-  authType AuthType @default(email)
+  isSubscribed   Boolean?  @default(false)
+  isActivated    Boolean?  @default(false)
+  isSocialSignUp Boolean?  @default(false)
+  authType       AuthType  @default(email)
+  Bookmark       Bookmark[]
 
   @@map("users")
 }
@@ -31,7 +32,16 @@ enum AuthType {
 }
 
 model Bookmark {
-  id String @unique @default(cuid())
+  id          String @unique @default(cuid())
+  name        String
+  description String
+  link        String
+  userId      String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("bookmarks")
 }
