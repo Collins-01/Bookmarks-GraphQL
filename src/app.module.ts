@@ -29,3 +29,4 @@ import { UserModule } from './user/user.module';
   providers: [AppService],
 })
 export class AppModule {}
+// https://progressivecoder.com/how-to-create-your-first-nestjs-graphql-application/

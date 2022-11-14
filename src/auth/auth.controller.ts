@@ -9,11 +9,10 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-// import { AuthGuard } from '@nestjs/passport';
-// import { User } from '@prisma/client';
+
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-// import { GetUser } from './decorators/get-user.decorator';
+
 import {
   ForgotPasswordDto,
   LoginDTO,

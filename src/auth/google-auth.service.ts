@@ -16,7 +16,7 @@ export class GoogleAuthService {
     private prisma: PrismaService,
     private authService: AuthService,
   ) {}
-  //   oauthClient: Auth.OAuth2Client;
+  
   clientID = this.config.get('GOOGLE_AUTH_CLIENT_ID');
   clientSecret = this.config.get('GOOGLE_AUTH_CLIENT_SECRET');
 

@@ -18,3 +18,8 @@
 -  `@types/passport-jwt :` Passport JWT for Typescript
 -  `-D @types/passport-google-oauth20 : ` Google Authentication (Types)
 -  `passport-google-oauth20 : ` Google Authentication 
+-   `@nestjs/graphql :` GraphQL Library for NestJS
+-   `graphql : ` GraphQL library for Express(Node.JS)
+-   `apollo-server-express :` Apollo Server for  Express applications.
+
+

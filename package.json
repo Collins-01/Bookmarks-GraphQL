@@ -24,7 +24,7 @@
     "@nestjs/common": "^9.0.0",
     "@nestjs/config": "^2.2.0",
     "@nestjs/core": "^9.0.0",
-    "@nestjs/graphql": "^10.1.5",
+    "@nestjs/graphql": "^10.1.6",
     "@nestjs/graphql-workspace": "github:nestjs/graphql",
     "@nestjs/jwt": "^9.0.0",
     "@nestjs/mapped-types": "*",
