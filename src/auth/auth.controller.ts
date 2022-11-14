@@ -9,11 +9,11 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { User } from '@prisma/client';
-import { Response } from 'express';
+// import { AuthGuard } from '@nestjs/passport';
+// import { User } from '@prisma/client';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { GetUser } from './decorators/get-user.decorator';
+// import { GetUser } from './decorators/get-user.decorator';
 import {
   ForgotPasswordDto,
   LoginDTO,
@@ -22,6 +22,7 @@ import {
   UpdatePasswordDto,
   VerifyOtpDTO,
 } from './dtos';
+import { GoogleGuard } from './guards';
 import { OTPService } from './otp.service';
 import { PasswordService } from './password.service';
 
@@ -65,12 +66,7 @@ export class AuthController {
     return this.otpService.deleteOtpTable();
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Patch('password-update')
-  updatePassword(@Body() dto: UpdatePasswordDto, @GetUser() user: User, @Res() response: Response) {
-    return this.passwordService.updatePassword(dto, user.email,response);
-  }
-
+ 
   @Post('resfresh-token')
   refreshToken(@Body() token: string) {
     return this.authService.refreshToken(token);
@@ -83,8 +79,21 @@ export class AuthController {
 
   // **************** social authentications ****************
 
-  @Post('google')
-  googleAuth() {}
+  @Get('google')
+  googleAuth(@Req() request:Request) {
+    console.log(request.path);
+  }
+
+  @UseGuards(GoogleGuard)
+  @Get('google/redirect')
+  googleAuthRedirect(@Req() request:Request){
+    return this.authService.googleAuthRedirect(request);
+
+  }
+
+
+
+
 
   @Post('facebook')
   facebookAuth() {}

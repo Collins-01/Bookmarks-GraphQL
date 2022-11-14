@@ -5,12 +5,21 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { JWTStrategy } from './strategy';
+import { GooogleStrategy, JWTStrategy } from './strategy';
 import { OTPService } from './otp.service';
 import { PasswordService } from './password.service';
+import { GoogleAuthService } from './google-auth.service';
 
 @Module({
-  providers: [AuthService, JwtModule, JWTStrategy,OTPService, PasswordService],
+  providers: [
+    AuthService,
+    JwtModule,
+    JWTStrategy,
+    // GooogleStrategy,
+    OTPService,
+    PasswordService,
+    GoogleAuthService,
+  ],
   imports: [
     PrismaModule,
 
@@ -25,8 +34,9 @@ import { PasswordService } from './password.service';
       },
       inject: [ConfigService],
     }),
+
     // * Register Passport Module to be asyncronously loaded
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({ defaultStrategy: ['jwt', 'google'] }),
   ],
   controllers: [AuthController],
 })

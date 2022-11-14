@@ -10,29 +10,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 model User {
-    id String @unique @default(cuid())
-    email String @unique 
-    hash String 
-    age Int 
-    isSubscribed Boolean? @default(false)
-    isActivated Boolean? @default(false)
+  id             String   @unique @default(cuid())
+  email          String   @unique
+  hash           String?  
+  age            Int
+  isSubscribed   Boolean? @default(false)
+  isActivated    Boolean? @default(false)
+  isSocialSignUp Boolean? @default(false)
+  authType AuthType @default(email)
 
-    @@map("users")
+  @@map("users")
+}
 
+enum AuthType {
+  email
+  google
+  facebook
+  apple
 }
 
 model Bookmark {
   id String @unique @default(cuid())
+
   @@map("bookmarks")
 }
 
-
 model Verification {
-  id String @unique @default(cuid())
-  email String @unique
-  code String @unique
-  expiry DateTime 
+  id     String   @unique @default(cuid())
+  email  String   @unique
+  code   String   @unique
+  expiry DateTime
 }

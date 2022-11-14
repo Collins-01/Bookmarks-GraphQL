@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -11,7 +12,7 @@ import * as argon from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { User } from '@prisma/client';
 import { OTPService } from './otp.service';
 import { Token } from './models';
@@ -71,11 +72,10 @@ export class AuthService {
       throw new Error(error);
     }
   }
-   getUserFromToken(token: string): Promise<User | null> {
+  getUserFromToken(token: string): Promise<User | null> {
     // const id = this.jwt.decode(token)['userId'];
     const json = this.jwt.decode(token);
     const id = '';
-    
 
     // const id = this.jwt.decode(token)['userId'];
     // const payload: string decoded['userId'];
@@ -97,6 +97,10 @@ export class AuthService {
     if (!user.isActivated) {
       throw new UnauthorizedException('OTP not activated.');
     }
+
+    if (!user.hash) {
+      throw new BadRequestException('user did not register with email')
+    }
     const pwMatch = await argon.verify(user.hash, loginDTO.password);
     if (!pwMatch) {
       throw new ForbiddenException('Incorrect credentials');
@@ -107,10 +111,20 @@ export class AuthService {
     };
     const token = this.generateTokens(payload);
 
-    const {hash,...rest} = user;
+    const { hash, ...rest } = user;
     return {
       ...token,
       ...rest,
+    };
+  }
+
+  async googleAuthRedirect(request: Request) {
+    if (!request.user) {
+      return 'No User from Google.';
+    }
+    return {
+      message: `User infomation from Google `,
+      user: request.user,
     };
   }
 

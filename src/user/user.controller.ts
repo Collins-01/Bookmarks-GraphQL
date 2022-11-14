@@ -7,7 +7,6 @@ import {
   Res,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { JWTGuard } from 'src/auth/guards';
 import { User } from '@prisma/client';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
