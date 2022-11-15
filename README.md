@@ -22,4 +22,8 @@
 -   `graphql : ` GraphQL library for Express(Node.JS)
 -   `apollo-server-express :` Apollo Server for  Express applications.
 
+-   `@nestjs/apollo: ` Apollo Driver fro GraphQL
+
+-  `graphql-tools: `
+
 
